@@ -8,6 +8,7 @@ it as a JSON download — the server never sees the assembled report.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
 
 from fastapi import FastAPI, HTTPException
@@ -17,7 +18,7 @@ from app.checks.dns_records import check_dns
 from app.checks.headers import check_headers
 from app.checks.ports import check_ports
 from app.checks.tls import check_tls
-from app.domain_utils import InvalidDomainError, validate_domain
+from app.domain_utils import InvalidDomainError, unwrap_ip, validate_domain
 from app.schemas import DomainRequest
 from app.scoring import score_passive, score_ports
 
@@ -73,6 +74,6 @@ def scan_ports(body: DomainRequest) -> dict:
     except InvalidDomainError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    port_result = check_ports(ips[0])
+    port_result = check_ports(str(unwrap_ip(ipaddress.ip_address(ips[0]))))
     summary = score_ports(port_result)
     return {"domain": domain, "ports": port_result, "summary": summary}

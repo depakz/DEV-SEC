@@ -20,6 +20,9 @@ _HOSTNAME_RE = re.compile(
 )
 
 
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
 class InvalidDomainError(ValueError):
     """Raised when a submitted domain fails syntax or safety checks."""
 
@@ -33,6 +36,19 @@ def normalize_domain(raw: str) -> str:
     if not value or not _HOSTNAME_RE.match(value):
         raise InvalidDomainError(f"'{raw}' is not a syntactically valid hostname")
     return value
+
+
+def unwrap_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address):
+    """Return the IPv4 embedded in a NAT64 (64:ff9b::/96) or IPv4-mapped
+    address, otherwise the address unchanged. DNS64 resolvers synthesize
+    NAT64 addresses for IPv4-only hosts, so the embedded IPv4 is what
+    actually has to be checked (and what a port probe has to connect to)."""
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip in _NAT64_PREFIX:
+            return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if ip.ipv4_mapped:
+            return ip.ipv4_mapped
+    return ip
 
 
 def assert_publicly_routable(domain: str) -> list[str]:
@@ -52,7 +68,7 @@ def assert_publicly_routable(domain: str) -> list[str]:
         raise InvalidDomainError(f"'{domain}' did not resolve to any address")
 
     for ip_str in ips:
-        ip = ipaddress.ip_address(ip_str)
+        ip = unwrap_ip(ipaddress.ip_address(ip_str))
         if (
             ip.is_private
             or ip.is_loopback

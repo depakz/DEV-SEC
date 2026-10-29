@@ -41,3 +41,21 @@ def test_accepts_public_ip(monkeypatch):
         lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))],
     )
     assert assert_publicly_routable("example.com") == ["93.184.216.34"]
+
+
+def test_accepts_nat64_wrapped_public_ip(monkeypatch):
+    monkeypatch.setattr(
+        "socket.getaddrinfo",
+        lambda *a, **k: [(10, 1, 6, "", ("64:ff9b::d818:3901", 0, 0, 0))],
+    )
+    assert assert_publicly_routable("torkq.com") == ["64:ff9b::d818:3901"]
+
+
+@pytest.mark.parametrize("wrapped", ["64:ff9b::7f00:1", "64:ff9b::a9fe:a9fe", "::ffff:10.0.0.1"])
+def test_rejects_nat64_wrapped_private_ip(monkeypatch, wrapped):
+    monkeypatch.setattr(
+        "socket.getaddrinfo",
+        lambda *a, **k: [(10, 1, 6, "", (wrapped, 0, 0, 0))],
+    )
+    with pytest.raises(InvalidDomainError):
+        assert_publicly_routable("evil.example")
