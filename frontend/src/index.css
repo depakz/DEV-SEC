@@ -1,0 +1,150 @@
+:root {
+  --bg: #0f1117;
+  --card: #171a23;
+  --text: #e6e8ee;
+  --muted: #9aa1b1;
+  --border: #2a2e3a;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+h1 {
+  margin-bottom: 4px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.domain-form {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0 28px;
+}
+
+.domain-form input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+}
+
+button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #2d6cdf;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.results-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.score-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.score-grade {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.score-number {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.findings {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  color: #e0a800;
+}
+
+.checks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.check-block ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.check-block li {
+  padding: 3px 0;
+  font-size: 14px;
+}
+
+.pass {
+  color: #3fb950;
+}
+
+.fail {
+  color: #f85149;
+}
+
+.error-text {
+  color: #f85149;
+}
+
+.verify-panel {
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.instruction-block {
+  background: #0d0f15;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+
+.instruction-block code {
+  display: block;
+  word-break: break-all;
+  margin-top: 4px;
+  font-size: 12px;
+}

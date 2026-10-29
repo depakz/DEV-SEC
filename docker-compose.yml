@@ -1,0 +1,19 @@
+# Local dev / demo stack only. The Azure deployment (Terraform) is
+# separate and does not use this file.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8010:8000"
+    environment:
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081
+      - SCANNER_HMAC_SECRET=${SCANNER_HMAC_SECRET:-dev-only-secret-not-for-production}
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8081:80"
+    environment:
+      - BACKEND_URL=http://localhost:8010
+    depends_on:
+      - backend
