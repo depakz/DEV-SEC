@@ -6,7 +6,6 @@
 //   azure-sp            (Username/Password, or 4 Secret texts) - the Service
 //                        Principal Terraform/az use: ARM_CLIENT_ID,
 //                        ARM_CLIENT_SECRET, ARM_SUBSCRIPTION_ID, ARM_TENANT_ID
-//   scanner-hmac-secret  (Secret text) - TF_VAR_scanner_hmac_secret
 //
 // Trigger: either a GitHub webhook to <jenkins-url>/github-webhook/, or the
 // pollSCM fallback below if Jenkins isn't reachable from GitHub.
@@ -136,8 +135,7 @@ pipeline {
                 withCredentials([
                     usernamePassword(credentialsId: 'azure-sp', usernameVariable: 'ARM_CLIENT_ID', passwordVariable: 'ARM_CLIENT_SECRET'),
                     string(credentialsId: 'azure-subscription-id', variable: 'ARM_SUBSCRIPTION_ID'),
-                    string(credentialsId: 'azure-tenant-id', variable: 'ARM_TENANT_ID'),
-                    string(credentialsId: 'scanner-hmac-secret', variable: 'TF_VAR_scanner_hmac_secret')
+                    string(credentialsId: 'azure-tenant-id', variable: 'ARM_TENANT_ID')
                 ]) {
                     dir('terraform') {
                         sh '''

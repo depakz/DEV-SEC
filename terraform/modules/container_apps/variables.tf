@@ -63,8 +63,3 @@ variable "min_replicas" {
 variable "max_replicas" {
   type = number
 }
-
-variable "scanner_hmac_secret" {
-  type      = string
-  sensitive = true
-}

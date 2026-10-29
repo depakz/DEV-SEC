@@ -66,6 +66,4 @@ module "container_apps" {
   frontend_memory    = var.frontend_memory
   min_replicas       = var.min_replicas
   max_replicas       = var.max_replicas
-
-  scanner_hmac_secret = var.scanner_hmac_secret
 }

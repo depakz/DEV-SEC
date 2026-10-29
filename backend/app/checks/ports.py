@@ -1,7 +1,5 @@
-"""Active TCP port check — ONLY ever called after ownership verification
-passes (enforced in app/main.py, not here). Kept to a short, well-known
-list rather than a full 1-65535 sweep: this is a posture check, not a
-reconnaissance tool."""
+"""Active TCP port check. Kept to a short, well-known list rather than a
+full 1-65535 sweep: this is a posture check, not a reconnaissance tool."""
 from __future__ import annotations
 
 import socket

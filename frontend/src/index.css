@@ -127,24 +127,10 @@ button:disabled {
   color: #f85149;
 }
 
-.verify-panel {
+.port-panel {
   background: var(--card);
   border: 1px dashed var(--border);
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 20px;
-}
-
-.instruction-block {
-  background: #0d0f15;
-  border-radius: 6px;
-  padding: 10px 14px;
-  margin: 10px 0;
-}
-
-.instruction-block code {
-  display: block;
-  word-break: break-all;
-  margin-top: 4px;
-  font-size: 12px;
 }

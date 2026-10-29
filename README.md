@@ -13,7 +13,7 @@ something stored on the server.
 ## Repository layout
 
 ```
-backend/            FastAPI app: checks, scoring, ownership verification + tests
+backend/            FastAPI app: checks, scoring + tests
 frontend/            React (Vite) single-page app + tests
 terraform/           Azure Container Registry + Container Apps Environment + 2 Container Apps
 Jenkinsfile          CI/CD: lint/test -> Bandit/pip-audit -> Docker build -> Trivy scan -> push ACR -> terraform apply -> smoke test
@@ -21,20 +21,6 @@ docker-compose.yml   Local dev/demo stack (not used for the Azure deploy)
 scripts/deploy.sh    One-time setup of the Terraform remote-state storage account
 docs/                Architecture notes + the project report template
 ```
-
-## How ownership verification works (no database needed)
-
-1. `POST /api/verify/start {domain}` — server mints a signed, 15-minute
-   token bound to that exact domain and hands back two ways to publish it:
-   a DNS TXT record, or a file under `/.well-known/`.
-2. You publish the token in either place — something only someone with
-   real control over the domain's DNS or webserver can do.
-3. `POST /api/verify/check {domain, token}` — server re-derives the
-   signature (catches tampering/reuse-on-another-domain) **and** does a
-   live lookup to confirm the token is actually published.
-4. `POST /api/scan/ports` re-runs step 3 in full, every time, before
-   scanning a single port. Nothing from steps 1–3 is cached anywhere —
-   see `backend/app/verify.py` for the full reasoning.
 
 ## Run it locally
 
@@ -87,7 +73,6 @@ cd scripts
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars   # edit project_name/location as needed
-export TF_VAR_scanner_hmac_secret="$(openssl rand -hex 32)"
 terraform init
 terraform plan -out=plan.tfplan
 terraform apply plan.tfplan
@@ -126,7 +111,6 @@ git push -u origin main
 2. Add credentials (Manage Jenkins → Credentials):
    - `azure-sp` — Username/Password: the Service Principal's `appId` / `password`
    - `azure-subscription-id`, `azure-tenant-id` — Secret text
-   - `scanner-hmac-secret` — Secret text (same value used above)
    - `acr-credentials` — Username/Password: `az acr credential show --name <acr>`
    - `acr-login-server` — Secret text: the ACR login server hostname
 3. New Item → Pipeline → "Pipeline script from SCM" → Git → your repo URL →
@@ -157,7 +141,6 @@ terraform destroy
 |---|---|
 | `terraform apply` fails creating the Container App | The images don't exist in ACR yet — do the manual build+push in step 2 first |
 | ACR name already taken | `project_name` collided; change it or rerun (a random suffix is appended) |
-| Port scan always returns 403 | DNS/file not propagated yet, or token expired (15 min TTL) — request a fresh token |
 | `pip-audit`/`bandit`/`trivy` fail the build | A real finding — fix the dependency/code/image, don't suppress it |
 
 ## What each deliverable maps to
@@ -167,6 +150,5 @@ terraform destroy
 | Architecture diagram | `docs/architecture.md` (redraw as an image for the report) |
 | Terraform code snippets | `terraform/*.tf`, `terraform/modules/**/*.tf` |
 | Jenkinsfile / pipeline config | `Jenkinsfile` |
-| Ownership-verification design | `backend/app/verify.py` |
 | Screenshots | Captured while following steps 1–5 above |
 | Report | `docs/report_template.md` |

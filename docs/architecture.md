@@ -44,18 +44,10 @@
    client-side. **Nothing is written to a database anywhere in this flow** —
    the service is stateless by design.
 
-## Request flow (active port scan, gated)
+## Request flow (active port scan)
 
-1. User requests a verification token: `POST /api/verify/start`.
-2. The backend mints a signed, time-limited token bound to that domain
-   (see `backend/app/verify.py`) and returns it along with two ways to
-   publish it (a DNS TXT record, or a file under `/.well-known/`).
-3. User publishes the token somewhere only the domain's real owner could.
-4. User calls `POST /api/verify/check` — the backend re-derives and checks
-   the signature, then does a *live* DNS/HTTP lookup to confirm the token
-   is actually published.
-5. Only if that succeeds does `POST /api/scan/ports` run — and it
-   re-verifies from scratch every single time, since nothing is cached.
+1. User clicks "Run port scan" for the scanned domain: `POST /api/scan/ports`.
+2. The backend resolves the domain, rejects non-public addresses, and probes a short list of well-known TCP ports.
 
 ## Why Terraform provisions Container Apps, not a VM
 

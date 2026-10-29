@@ -60,9 +60,3 @@ variable "max_replicas" {
   type    = number
   default = 2
 }
-
-variable "scanner_hmac_secret" {
-  description = "Signing key for the ownership-verification tokens. Set via TF_VAR_scanner_hmac_secret or a CI secret — never committed."
-  type        = string
-  sensitive   = true
-}

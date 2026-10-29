@@ -13,7 +13,7 @@ or paste into Word/Google Docs and export as PDF.)*
 
 To design and build a stateless, web-based Security Posture Scanner — a tool
 that checks a domain's TLS certificate, HTTP security headers, and DNS email
-hygiene (SPF/DMARC/MX), with an ownership-verification flow that gates an
+hygiene (SPF/DMARC/MX), with an
 active port scan — and to deploy it on Microsoft Azure through a fully
 automated Terraform + Jenkins + Docker pipeline triggered by `git push`.
 
@@ -26,7 +26,7 @@ automated Terraform + Jenkins + Docker pipeline triggered by `git push`.
 | Jenkins | CI/CD orchestration — lint, test, security scan, build, push, deploy, verify |
 | Docker | Packages the backend (FastAPI) and frontend (React/nginx) as images |
 | GitHub | Version control + webhook/poll trigger source |
-| FastAPI (Python) | Backend API — all checks, scoring, verification |
+| FastAPI (Python) | Backend API — all checks, scoring |
 | React + Vite | Frontend single-page app |
 | pytest / Vitest | Automated tests for backend and frontend |
 | Bandit / pip-audit / Trivy | DevSecOps scans — static code, dependency, and container image |
@@ -69,20 +69,6 @@ printed `frontend_url` / `backend_url` outputs.)*
 
 Explain, in your own words, why the app keeps no database and how the
 frontend assembles the downloadable JSON report entirely client-side.
-
-### 5.2 Ownership verification (for the port scan)
-
-Explain the token design from `backend/app/verify.py`: how a signed,
-time-limited token lets the server re-check a domain-ownership claim with
-zero stored state, and why the signature alone isn't the proof of
-ownership — the live DNS/file lookup is.
-
-```python
-<!-- paste the relevant parts of backend/app/verify.py -->
-```
-
-*(Insert screenshot: the frontend's verification panel showing the DNS TXT
-record / well-known file instructions, then the "verified" state.)*
 
 ## 6. CI/CD Pipeline (Jenkins)
 
@@ -132,7 +118,7 @@ pushing the change and letting the pipeline redeploy automatically.)*
 ## 9. Conclusion
 
 Summarize what the project demonstrated: a stateless, privacy-respecting
-security tool, with ownership-gated active scanning, deployed through a
+security tool, with active port scanning, deployed through a
 fully automated, repeatable DevSecOps pipeline triggered by nothing more
 than a `git push`.
 

@@ -7,7 +7,6 @@ services:
       - "8010:8000"
     environment:
       - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8081
-      - SCANNER_HMAC_SECRET=${SCANNER_HMAC_SECRET:-dev-only-secret-not-for-production}
 
   frontend:
     build: ./frontend

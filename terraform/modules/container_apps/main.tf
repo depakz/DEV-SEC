@@ -23,11 +23,6 @@ resource "azurerm_container_app" "backend" {
     value = var.acr_password
   }
 
-  secret {
-    name  = "hmac-secret"
-    value = var.scanner_hmac_secret
-  }
-
   registry {
     server               = var.acr_login_server
     username             = var.acr_username
@@ -43,11 +38,6 @@ resource "azurerm_container_app" "backend" {
       image  = "${var.acr_login_server}/backend:${var.backend_image_tag}"
       cpu    = var.backend_cpu
       memory = var.backend_memory
-
-      env {
-        name        = "SCANNER_HMAC_SECRET"
-        secret_name = "hmac-secret"
-      }
 
       env {
         name  = "ALLOWED_ORIGINS"

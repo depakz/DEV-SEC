@@ -24,6 +24,4 @@ async function postJSON(path, body) {
 }
 
 export const scanPassive = (domain) => postJSON("/api/scan/passive", { domain });
-export const verifyStart = (domain) => postJSON("/api/verify/start", { domain });
-export const verifyCheck = (domain, token) => postJSON("/api/verify/check", { domain, token });
-export const scanPorts = (domain, token) => postJSON("/api/scan/ports", { domain, token });
+export const scanPorts = (domain) => postJSON("/api/scan/ports", { domain });

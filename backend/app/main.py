@@ -18,13 +18,12 @@ from app.checks.headers import check_headers
 from app.checks.ports import check_ports
 from app.checks.tls import check_tls
 from app.domain_utils import InvalidDomainError, validate_domain
-from app.schemas import DomainRequest, PortScanRequest, VerifyCheckRequest
+from app.schemas import DomainRequest
 from app.scoring import score_passive, score_ports
-from app.verify import issue_token, verify_ownership
 
 app = FastAPI(
     title="Security Posture Scanner",
-    description="Stateless passive + (verified) active security posture checks.",
+    description="Stateless passive + active security posture checks.",
     version="1.0.0",
 )
 
@@ -44,7 +43,7 @@ def health() -> dict:
 
 @app.post("/api/scan/passive")
 async def scan_passive(body: DomainRequest) -> dict:
-    """TLS, header and DNS checks — public info, no ownership proof needed."""
+    """TLS, header and DNS checks."""
     try:
         domain, _ips = validate_domain(body.domain)
     except InvalidDomainError as exc:
@@ -66,40 +65,13 @@ async def scan_passive(body: DomainRequest) -> dict:
     }
 
 
-@app.post("/api/verify/start")
-def verify_start(body: DomainRequest) -> dict:
-    """Issue a signed, stateless verification token for this domain."""
-    try:
-        domain, _ips = validate_domain(body.domain)
-    except InvalidDomainError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"domain": domain, **issue_token(domain)}
-
-
-@app.post("/api/verify/check")
-def verify_check(body: VerifyCheckRequest) -> dict:
-    """Re-validate token signature + live DNS/file lookup. No state stored."""
-    try:
-        domain, _ips = validate_domain(body.domain)
-    except InvalidDomainError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"domain": domain, **verify_ownership(domain, body.token)}
-
-
 @app.post("/api/scan/ports")
-def scan_ports(body: PortScanRequest) -> dict:
-    """Active port check — gated behind a fresh ownership re-check."""
+def scan_ports(body: DomainRequest) -> dict:
+    """Active port check on a short list of well-known ports."""
     try:
         domain, ips = validate_domain(body.domain)
     except InvalidDomainError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    verification = verify_ownership(domain, body.token)
-    if not verification.get("verified"):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Ownership not verified: {verification.get('reason', 'unknown')}",
-        )
 
     port_result = check_ports(ips[0])
     summary = score_ports(port_result)

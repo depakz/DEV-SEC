@@ -1,7 +1,7 @@
 import { useState } from "react";
 import DomainForm from "./components/DomainForm.jsx";
 import PassiveResults from "./components/PassiveResults.jsx";
-import VerifyPanel from "./components/VerifyPanel.jsx";
+import PortScanPanel from "./components/PortScanPanel.jsx";
 import DownloadReportButton from "./components/DownloadReportButton.jsx";
 import { scanPassive } from "./api.js";
 
@@ -33,7 +33,7 @@ export default function App() {
       <h1>Security Posture Scanner</h1>
       <p className="muted">
         Stateless — nothing you scan here is saved. Enter any public domain for the
-        passive checks; port scanning requires proving you own it.
+        passive checks. Only run the port scan on domains you are authorized to test.
       </p>
 
       <DomainForm onSubmit={handleScan} loading={loading} />
@@ -42,7 +42,7 @@ export default function App() {
       {passiveResult && (
         <>
           <PassiveResults result={passiveResult} />
-          <VerifyPanel domain={passiveResult.domain} onPortResult={setPortResult} />
+          <PortScanPanel domain={passiveResult.domain} onPortResult={setPortResult} />
           <DownloadReportButton passiveResult={passiveResult} portResult={portResult} />
         </>
       )}
