@@ -13,6 +13,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.checks.dns_records import check_dns
 from app.checks.headers import check_headers
@@ -77,3 +78,10 @@ def scan_ports(body: DomainRequest) -> dict:
     port_result = check_ports(str(unwrap_ip(ipaddress.ip_address(ips[0]))))
     summary = score_ports(port_result)
     return {"domain": domain, "ports": port_result, "summary": summary}
+
+
+# Single-container deployment: the root Dockerfile copies the built frontend
+# into ./static. Mounted last so /api/* routes take precedence.
+_static_dir = os.environ.get("STATIC_DIR", "static")
+if os.path.isdir(_static_dir):
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
