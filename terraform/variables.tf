@@ -1,62 +1,29 @@
-variable "project_name" {
-  description = "Short name used as a prefix for every resource (lowercase, no spaces)."
+variable "service_name" {
+  description = "Name of the Render web service."
   type        = string
-  default     = "secscan"
+  default     = "devsec"
 }
 
-variable "location" {
-  description = "Azure region to deploy into."
+variable "repo_url" {
+  description = "GitHub repo Render builds from."
   type        = string
-  default     = "East US"
+  default     = "https://github.com/depakz/DEV-SEC"
 }
 
-variable "environment" {
-  description = "Deployment environment tag (dev / staging / prod)."
+variable "branch" {
+  description = "Git branch to deploy."
   type        = string
-  default     = "dev"
+  default     = "main"
 }
 
-variable "backend_image_tag" {
-  description = "Tag of the backend image in ACR to deploy (Jenkins pushes this, e.g. the Git commit SHA or build number)."
+variable "plan" {
+  description = "Render instance plan (free, starter, ...)."
   type        = string
-  default     = "latest"
+  default     = "free"
 }
 
-variable "frontend_image_tag" {
-  description = "Tag of the frontend image in ACR to deploy."
+variable "region" {
+  description = "Render region."
   type        = string
-  default     = "latest"
-}
-
-variable "backend_cpu" {
-  description = "vCPU allocated to the backend container app (Container Apps billing is pay-per-use, so keep this small)."
-  type        = number
-  default     = 0.25
-}
-
-variable "backend_memory" {
-  description = "Memory allocated to the backend container app."
-  type        = string
-  default     = "0.5Gi"
-}
-
-variable "frontend_cpu" {
-  type    = number
-  default = 0.25
-}
-
-variable "frontend_memory" {
-  type    = string
-  default = "0.5Gi"
-}
-
-variable "min_replicas" {
-  description = "Scale-to-zero when idle keeps this at $0 compute cost between demos."
-  type        = number
-  default     = 0
-}
-
-variable "max_replicas" {
-  type    = number
-  default = 2
+  default     = "oregon"
 }

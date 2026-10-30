@@ -1,14 +1,17 @@
 // Declarative pipeline: checkout -> lint/test both apps -> security scan ->
-// build & push Docker images -> terraform apply (deploys new image tags to
-// Azure Container Apps) -> smoke test the live health endpoint.
+// build & scan the Docker image -> validate Terraform -> trigger a Render
+// deploy through its API -> wait until live -> smoke test the health endpoint.
 //
-// Jenkins credentials expected (Manage Jenkins > Credentials):
-//   azure-sp            (Username/Password, or 4 Secret texts) - the Service
-//                        Principal Terraform/az use: ARM_CLIENT_ID,
-//                        ARM_CLIENT_SECRET, ARM_SUBSCRIPTION_ID, ARM_TENANT_ID
+// Render has Auto-Deploy turned OFF (set in terraform/main.tf), so a deploy
+// only happens when this pipeline reaches the "Deploy to Render" stage.
 //
-// Trigger: either a GitHub webhook to <jenkins-url>/github-webhook/, or the
-// pollSCM fallback below if Jenkins isn't reachable from GitHub.
+// Jenkins credentials expected (Manage Jenkins > Credentials, kind "Secret text"):
+//   render-api-key      - Render dashboard > Account Settings > API Keys
+//   render-service-id   - `terraform output service_id` (srv-xxxxxxxx)
+//   render-service-url  - `terraform output service_url`, e.g. https://devsec.onrender.com
+//
+// Trigger: GitHub webhook to <jenkins-url>/github-webhook/, or the pollSCM
+// fallback below if Jenkins isn't reachable from GitHub.
 
 pipeline {
     agent any
@@ -91,80 +94,85 @@ pipeline {
             }
         }
 
-        stage('Build Docker images') {
+        stage('Build Docker image') {
             steps {
-                // The frontend no longer needs the backend URL at build time —
-                // it's injected at container start by docker-entrypoint.sh from
-                // the BACKEND_URL env var Terraform sets on the Container App.
-                sh '''
-                    docker build -t backend:${IMAGE_TAG} ./backend
-                    docker build -t frontend:${IMAGE_TAG} ./frontend
-                '''
+                // One image: React build served by FastAPI (root Dockerfile).
+                sh 'docker build -t devsec:${IMAGE_TAG} .'
             }
         }
 
         stage('Container image scan (Trivy)') {
             steps {
-                sh '''
-                    # Fails the build on HIGH/CRITICAL vulnerabilities in either image.
-                    trivy image --exit-code 1 --severity HIGH,CRITICAL backend:${IMAGE_TAG}
-                    trivy image --exit-code 1 --severity HIGH,CRITICAL frontend:${IMAGE_TAG}
-                '''
+                // Fails the build on HIGH/CRITICAL vulnerabilities.
+                sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL devsec:${IMAGE_TAG}'
             }
         }
 
-        stage('Push to Azure Container Registry') {
+        stage('Terraform validate') {
             steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'acr-credentials', usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS'),
-                    string(credentialsId: 'acr-login-server', variable: 'ACR_SERVER')
-                ]) {
+                dir('terraform') {
                     sh '''
-                        echo "$ACR_PASS" | docker login "$ACR_SERVER" -u "$ACR_USER" --password-stdin
-                        docker tag backend:${IMAGE_TAG} "$ACR_SERVER/backend:${IMAGE_TAG}"
-                        docker tag frontend:${IMAGE_TAG} "$ACR_SERVER/frontend:${IMAGE_TAG}"
-                        docker push "$ACR_SERVER/backend:${IMAGE_TAG}"
-                        docker push "$ACR_SERVER/frontend:${IMAGE_TAG}"
+                        terraform init -backend=false -input=false
+                        terraform fmt -check -recursive
+                        terraform validate
                     '''
                 }
             }
         }
 
-        stage('Deploy via Terraform') {
+        stage('Deploy to Render') {
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'azure-sp', usernameVariable: 'ARM_CLIENT_ID', passwordVariable: 'ARM_CLIENT_SECRET'),
-                    string(credentialsId: 'azure-subscription-id', variable: 'ARM_SUBSCRIPTION_ID'),
-                    string(credentialsId: 'azure-tenant-id', variable: 'ARM_TENANT_ID')
+                    string(credentialsId: 'render-api-key', variable: 'RENDER_API_KEY'),
+                    string(credentialsId: 'render-service-id', variable: 'RENDER_SERVICE_ID')
                 ]) {
-                    dir('terraform') {
-                        sh '''
-                            terraform init -input=false
-                            terraform apply -input=false -auto-approve \
-                                -var="backend_image_tag=${IMAGE_TAG}" \
-                                -var="frontend_image_tag=${IMAGE_TAG}"
-                            terraform output -raw frontend_url > ../frontend_url.txt
-                            terraform output -raw backend_url > ../backend_url.txt
-                        '''
-                    }
+                    sh '''
+                        API="https://api.onrender.com/v1/services/$RENDER_SERVICE_ID/deploys"
+                        DEPLOY_ID=$(curl -sf -X POST "$API" \
+                            -H "Authorization: Bearer $RENDER_API_KEY" \
+                            -H "Content-Type: application/json" \
+                            -d '{"clearCache":"do_not_clear"}' \
+                            | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+                        echo "Triggered Render deploy $DEPLOY_ID"
+
+                        # Poll until Render reports the deploy live (max ~20 min).
+                        for i in $(seq 1 80); do
+                            STATUS=$(curl -sf "$API/$DEPLOY_ID" \
+                                -H "Authorization: Bearer $RENDER_API_KEY" \
+                                | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])')
+                            echo "Deploy status: $STATUS"
+                            case "$STATUS" in
+                                live) exit 0 ;;
+                                build_failed|update_failed|canceled|deactivated)
+                                    echo "Render deploy failed ($STATUS)"; exit 1 ;;
+                            esac
+                            sleep 15
+                        done
+                        echo "Timed out waiting for Render deploy"; exit 1
+                    '''
                 }
             }
         }
 
         stage('Verify (smoke test)') {
             steps {
-                sh '''
-                    BACKEND_URL=$(cat backend_url.txt)
-                    sleep 10
-                    curl -sf "$BACKEND_URL/api/health" || (echo "Health check failed after deploy" && exit 1)
-                '''
+                withCredentials([string(credentialsId: 'render-service-url', variable: 'APP_URL')]) {
+                    sh '''
+                        # Free instances can take a while to wake up.
+                        for i in $(seq 1 12); do
+                            curl -sf "$APP_URL/api/health" && exit 0
+                            sleep 10
+                        done
+                        echo "Health check failed after deploy"; exit 1
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo "Build #${env.BUILD_NUMBER} deployed. Frontend: ${readFile('frontend_url.txt').trim()}"
+            echo "Build #${env.BUILD_NUMBER} deployed to Render."
         }
         failure {
             echo "Pipeline failed - check the stage logs above."

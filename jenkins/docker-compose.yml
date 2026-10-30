@@ -1,0 +1,14 @@
+# Local Jenkins:  docker compose -f jenkins/docker-compose.yml up -d --build
+# UI on http://localhost:8080 (initial password: docker logs devsec-jenkins)
+services:
+  jenkins:
+    build: .
+    container_name: devsec-jenkins
+    user: root # needs access to the host docker socket for image builds
+    ports:
+      - "8080:8080"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+volumes:
+  jenkins_home:

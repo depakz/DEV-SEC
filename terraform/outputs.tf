@@ -1,17 +1,9 @@
-output "resource_group_name" {
-  value = azurerm_resource_group.rg.name
+output "service_id" {
+  description = "Put this in the Jenkins credential 'render-service-id'."
+  value       = render_web_service.app.id
 }
 
-output "acr_login_server" {
-  description = "Push images here from Jenkins: docker push <this>/backend:<tag>"
-  value       = module.registry.login_server
-}
-
-output "backend_url" {
-  value = module.container_apps.backend_url
-}
-
-output "frontend_url" {
-  description = "Open this in a browser — the deployed Security Posture Scanner."
-  value       = module.container_apps.frontend_url
+output "service_url" {
+  description = "The deployed Security Posture Scanner."
+  value       = render_web_service.app.url
 }

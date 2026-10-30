@@ -1,8 +1,5 @@
-# Copy to terraform.tfvars and fill in your own values.
-# Do NOT commit terraform.tfvars — it's already in .gitignore.
-
-project_name        = "secscan"
-location            = "East US"
-environment         = "dev"
-backend_image_tag   = "latest"
-frontend_image_tag  = "latest"
+# Copy to terraform.tfvars to override defaults. Do NOT commit terraform.tfvars.
+service_name = "devsec"
+repo_url     = "https://github.com/depakz/DEV-SEC"
+branch       = "main"
+plan         = "free"

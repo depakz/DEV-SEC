@@ -1,154 +1,85 @@
 # Security Posture Scanner
 
 A stateless web app that checks a domain's TLS certificate, HTTP security
-headers, and DNS email hygiene (SPF/DMARC/MX) — plus a gated active port
-scan that only runs after you prove you own the domain. Built as a DevOps
-capstone: Terraform provisions Azure, Jenkins builds/tests/scans/deploys on
-every push, Docker packages both halves of the app.
+headers, and DNS email hygiene (SPF/DMARC/MX), plus an active port scan.
+Built as a DevOps capstone: Terraform defines the Render service, Jenkins
+tests/scans/deploys on every change, Docker packages the app.
 
 **No database, no login, no persistence.** Every scan result lives only in
-the browser tab that ran it; the "report" is a JSON file you download, not
-something stored on the server.
+the browser tab that ran it; the "report" is a JSON file you download.
 
 ## Repository layout
 
 ```
 backend/            FastAPI app: checks, scoring + tests
-frontend/            React (Vite) single-page app + tests
-terraform/           Azure Container Registry + Container Apps Environment + 2 Container Apps
-Jenkinsfile          CI/CD: lint/test -> Bandit/pip-audit -> Docker build -> Trivy scan -> push ACR -> terraform apply -> smoke test
-docker-compose.yml   Local dev/demo stack (not used for the Azure deploy)
-scripts/deploy.sh    One-time setup of the Terraform remote-state storage account
-docs/                Architecture notes + the project report template
+frontend/           React (Vite) UI
+Dockerfile          Single image: builds the frontend, FastAPI serves it (used on Render)
+terraform/          Render web service definition (render-oss/render provider)
+Jenkinsfile         CI/CD: lint/test -> Bandit/pip-audit -> Docker build -> Trivy -> terraform validate -> Render deploy -> smoke test
+jenkins/            Dockerfile + compose for a local Jenkins with all required tools
+docker-compose.yml  Local dev stack (separate backend/frontend containers)
+docs/               Architecture + report template
 ```
 
-## Run it locally
+## Run locally
 
 ```bash
-docker compose up --build
-# frontend: http://localhost:8081   backend: http://localhost:8010
+docker build -t devsec . && docker run -p 8000:8000 devsec   # http://localhost:8000
 ```
 
-Or without Docker:
+## CI/CD flow
+
+`git push` -> Jenkins (webhook or poll) -> lint, tests, Bandit, pip-audit,
+npm audit -> Docker build -> Trivy -> `terraform validate` -> call Render's
+deploy API -> wait until live -> `curl /api/health`.
+
+Render's **Auto-Deploy is off** (see `terraform/main.tf`), so a push alone
+never deploys: only a green Jenkins run does.
+
+## 1. Provision the Render service with Terraform
 
 ```bash
-# backend
-cd backend
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# frontend (separate terminal)
-cd frontend
-npm install
-npm run dev   # http://localhost:5173, talks to the backend on :8000
-```
-
-## Run the tests
-
-```bash
-cd backend && . .venv/bin/activate && pytest -q      # 36 tests
-cd frontend && npm test                               # vitest
-```
-
-## Prerequisites for the Azure deployment
-
-- An Azure subscription (Azure for Students works) + the Azure CLI, `az login` done once locally
-- Terraform >= 1.5
-- Docker, to build the two images
-- A Jenkins instance with the Git, Pipeline, Docker and Credentials plugins
-- An Azure Service Principal for Terraform/Jenkins:
-  `az ad sp create-for-rbac --role Contributor --scopes /subscriptions/<sub-id>`
-
-## 1. Bootstrap Terraform's remote state (one-time)
-
-```bash
-cd scripts
-./deploy.sh eastus
-# follow the printed instructions to fill in terraform/providers.tf's backend block
-```
-
-## 2. Provision + deploy manually (first run, before Jenkins exists)
-
-```bash
+export RENDER_API_KEY=rnd_xxx        # Render > Account Settings > API Keys
+export RENDER_OWNER_ID=tea-xxx       # Render workspace id
 cd terraform
-cp terraform.tfvars.example terraform.tfvars   # edit project_name/location as needed
 terraform init
-terraform plan -out=plan.tfplan
-terraform apply plan.tfplan
+terraform apply
+terraform output service_id          # srv-xxxx
+terraform output service_url         # https://devsec.onrender.com
 ```
 
-**Screenshot this for the report**: the end of `terraform apply` showing
-`Apply complete!` and the printed `frontend_url` / `backend_url` outputs.
+(If you already created the service in the Render UI, either run
+`terraform import render_web_service.app srv-xxxx` or just turn Auto-Deploy off
+in its Settings and skip this step.)
 
-Build and push the images once by hand so the Container Apps have
-something to pull on the very first apply (afterwards Jenkins does this):
+## 2. Run Jenkins locally
 
 ```bash
-ACR=$(terraform output -raw acr_login_server)
-az acr login --name "${ACR%%.*}"
-docker build -t "$ACR/backend:latest" ../backend
-docker build -t "$ACR/frontend:latest" --build-arg VITE_API_URL="https://$(terraform output -raw backend_url | sed 's#https://##')" ../frontend
-docker push "$ACR/backend:latest"
-docker push "$ACR/frontend:latest"
-terraform apply -auto-approve   # picks up the now-existing images
+docker compose -f jenkins/docker-compose.yml up -d --build
+docker logs devsec-jenkins            # initial admin password; UI on http://localhost:8080
 ```
 
-## 3. Push this repo to GitHub
+Add three **Secret text** credentials (Manage Jenkins > Credentials):
 
-```bash
-git init
-git add .
-git commit -m "Security Posture Scanner: FastAPI + React + Terraform + Jenkins"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<your-repo>.git
-git push -u origin main
-```
+| ID | Value |
+|---|---|
+| `render-api-key` | your Render API key |
+| `render-service-id` | `srv-xxxx` from step 1 |
+| `render-service-url` | the service URL, no trailing slash |
 
-## 4. Set up Jenkins
+Create a **Pipeline** job: "Pipeline script from SCM", Git,
+`https://github.com/depakz/DEV-SEC.git`, branch `main`, script path `Jenkinsfile`.
 
-1. Install plugins: Git, Pipeline, Docker Pipeline, Credentials Binding.
-2. Add credentials (Manage Jenkins → Credentials):
-   - `azure-sp` — Username/Password: the Service Principal's `appId` / `password`
-   - `azure-subscription-id`, `azure-tenant-id` — Secret text
-   - `acr-credentials` — Username/Password: `az acr credential show --name <acr>`
-   - `acr-login-server` — Secret text: the ACR login server hostname
-3. New Item → Pipeline → "Pipeline script from SCM" → Git → your repo URL →
-   Script Path: `Jenkinsfile`.
-4. Trigger: GitHub webhook to `<jenkins-url>/github-webhook/`, or rely on
-   the `pollSCM('H/2 * * * *')` fallback already in the Jenkinsfile.
-5. Click **Build Now** once to confirm the full pipeline runs end to end.
+## 3. Prove continuous deployment
 
-**Screenshot this for the report**: the Jenkins stage view, all green, and
-the console output tail showing the deployed `frontend_url`.
-
-## 5. Confirm continuous deployment
-
-Make a small change (e.g. a label in `frontend/src/App.jsx`), commit, push.
-Within the poll interval (≤2 min) or webhook delay, Jenkins should rebuild,
-re-scan, and redeploy automatically.
-
-## 6. Tear down (avoid ongoing Azure charges)
-
-```bash
-cd terraform
-terraform destroy
-```
+1. Change something visible (e.g. a heading in `frontend/src/App.jsx`), commit, push.
+2. Jenkins picks it up (or click **Build Now**); watch the stage view go green.
+3. The "Deploy to Render" stage logs `Triggered Render deploy ...` and `Deploy status: live`.
+4. Reload the Render URL and see the change. Screenshot: Jenkins stage view, Render
+   Events/Deploys tab (trigger shows as API), and the updated site.
 
 ## Troubleshooting
 
-| Symptom | Likely cause |
-|---|---|
-| `terraform apply` fails creating the Container App | The images don't exist in ACR yet — do the manual build+push in step 2 first |
-| ACR name already taken | `project_name` collided; change it or rerun (a random suffix is appended) |
-| `pip-audit`/`bandit`/`trivy` fail the build | A real finding — fix the dependency/code/image, don't suppress it |
-
-## What each deliverable maps to
-
-| Deliverable | Where it comes from |
-|---|---|
-| Architecture diagram | `docs/architecture.md` (redraw as an image for the report) |
-| Terraform code snippets | `terraform/*.tf`, `terraform/modules/**/*.tf` |
-| Jenkinsfile / pipeline config | `Jenkinsfile` |
-| Screenshots | Captured while following steps 1–5 above |
-| Report | `docs/report_template.md` |
+- **Deploy stage 401/404:** wrong `render-api-key` or `render-service-id`.
+- **Trivy fails the build:** a HIGH/CRITICAL CVE in the base image; bump the base tag.
+- **Smoke test times out:** free instances sleep; the stage retries for ~2 minutes.
