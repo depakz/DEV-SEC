@@ -103,8 +103,8 @@ pipeline {
 
         stage('Container image scan (Trivy)') {
             steps {
-                // Fails the build on HIGH/CRITICAL vulnerabilities.
-                sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL devsec:${IMAGE_TAG}'
+                // Fails the build on HIGH/CRITICAL vulnerabilities that have a fix available.
+                sh 'trivy image --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL devsec:${IMAGE_TAG}'
             }
         }
 

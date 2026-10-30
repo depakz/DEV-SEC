@@ -3,7 +3,7 @@
 FROM jenkins/jenkins:lts-jdk17
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-venv python3-pip curl unzip ca-certificates gnupg docker.io \
+        python3 python3-venv python3-pip curl unzip ca-certificates gnupg docker-cli \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && curl -fsSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin \
