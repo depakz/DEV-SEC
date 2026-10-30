@@ -127,7 +127,7 @@ pipeline {
                     string(credentialsId: 'render-service-id', variable: 'RENDER_SERVICE_ID')
                 ]) {
                     sh '''
-                        API="https://api.onrender.com/v1/services/$RENDER_SERVICE_ID/deploys"
+                        API="https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys"
                         DEPLOY_ID=$(curl -sf -X POST "$API" \
                             -H "Authorization: Bearer $RENDER_API_KEY" \
                             -H "Content-Type: application/json" \
