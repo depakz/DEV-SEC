@@ -5,6 +5,9 @@ services:
     build: .
     container_name: devsec-jenkins
     user: root # needs access to the host docker socket for image builds
+    environment:
+      TZ: Asia/Kolkata
+      JAVA_OPTS: -Duser.timezone=Asia/Kolkata
     ports:
       - "8080:8080"
     volumes:
