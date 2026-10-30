@@ -30,7 +30,7 @@ export default function App() {
 
   return (
     <main className="app">
-      <h1>Security Posture Scanner</h1>
+      <h1>Security Posture Scanner (CI/CD via Jenkins)</h1>
       <p className="muted">
         Stateless — nothing you scan here is saved. Enter any public domain for the
         passive checks. Only run the port scan on domains you are authorized to test.
